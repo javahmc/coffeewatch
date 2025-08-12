@@ -1,2 +1,4 @@
 streamlit>=1.33
-yt-dlp>=2024.04.09
+
+# latest yt-dlp direct from GitHub + extras for impersonation
+yt-dlp[default,curl-cffi] @ git+https://github.com/yt-dlp/yt-dlp@master
