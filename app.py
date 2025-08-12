@@ -55,18 +55,18 @@ if go and url:
 
             # Base options shared by both formats
             base_opts = {
-                "noplaylist": True,
-                "outtmpl": outtmpl,
-                "progress_hooks": [hook],
-                "quiet": True,
-                "http_headers": {
-                    "User-Agent": UA,
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Referer": url,  # harmless for most; helps some sources
-                },
-                # YouTube-specific: use android client to reduce throttling/403
-                "extractor_args": {"youtube": {"player_client": ["android"]}},
-            }
+    "noplaylist": True,
+    "outtmpl": outtmpl,
+    "progress_hooks": [hook],
+    "quiet": True,
+    "force_ipv4": True,  # <-- Force IPv4 instead of IPv6
+    "http_headers": {
+        "User-Agent": UA,
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": url,
+    },
+    "extractor_args": {"youtube": {"player_client": ["android"]}},
+}
             if cookie_path:
                 base_opts["cookiefile"] = cookie_path
 
