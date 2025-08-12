@@ -1,86 +1,69 @@
-import streamlit as st
-import yt_dlp
 import os
 import tempfile
+from pathlib import Path
 
-# ----------------- THEME & PAGE SETUP -----------------
-st.set_page_config(
-    page_title="Java's Coffee Download Bar",
-    page_icon="☕",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+import streamlit as st
+from yt_dlp import YoutubeDL
 
-# Inline CSS for coffee vibes
-coffee_css = """
-<style>
-    body {
-        background-color: #f5f0e6; /* light coffee cream */
-        color: #3e2723; /* dark roast */
-    }
-    .stApp {
-        background-color: #f5f0e6;
-    }
-    .stTextInput > div > div > input {
-        background-color: #fff8f0;
-        color: #3e2723;
-    }
-    .stDownloadButton button {
-        background-color: #795548;
-        color: white;
-        border-radius: 8px;
-    }
-    .stDownloadButton button:hover {
-        background-color: #5d4037;
-    }
-</style>
-"""
-st.markdown(coffee_css, unsafe_allow_html=True)
+st.set_page_config(page_title="Video Fetcher (for content you own)", page_icon="🎬")
+st.title("🎬 Video/Audio Fetcher")
+st.caption("Use only for content you own or that’s licensed for download. Respect site ToS.")
 
-# ----------------- HEADER -----------------
-st.title("☕ Java's Coffee Download Bar")
-st.write("Pull up a chair, pour yourself a cup, and grab that video.")
+url = st.text_input("Paste video URL")
+fmt = st.selectbox("Format", ["MP4 video (≤720p)", "M4A audio"])
+go = st.button("Fetch")
 
-# ----------------- INPUT -----------------
-video_url = st.text_input("Enter the video URL", placeholder="https://...")
+progress = st.progress(0)
+status = st.empty()
 
-# ----------------- DOWNLOAD LOGIC -----------------
-if st.button("Brew & Download"):
-    if not video_url.strip():
-        st.error("Please enter a video URL first.")
-    else:
-        with st.spinner("☕ Brewing your download... please wait..."):
-            try:
-                # Temporary file
-                temp_dir = tempfile.mkdtemp()
+def hook(d):
+    if d.get("status") == "downloading":
+        pct = d.get("_percent_str", "0%").strip().replace("%","")
+        try:
+            progress.progress(min(100, int(float(pct))))
+        except:
+            pass
+        status.write(f"ETA: {d.get('_eta_str','')} | Speed: {d.get('_speed_str','')}")
+
+if go and url:
+    st.info("Reminder: download only content you own or that's explicitly licensed.")
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            outtmpl = os.path.join(tmpdir, "%(title)s.%(ext)s")
+
+            if fmt.startswith("MP4"):
                 ydl_opts = {
-                    'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-                    'format': 'bestvideo+bestaudio/best',
-                    'merge_output_format': 'mp4',
-                    'noplaylist': True,
-                    'nocheckcertificate': True,
-                    'geo_bypass': True,
-                    'quiet': True,
-                    'restrictfilenames': True,
-                    'socket_timeout': 15,
-                    'source_address': '0.0.0.0'  # Forces IPv4 to avoid some 403 errors
+                    # Prefer formats that often avoid ffmpeg merging on free hosting
+                    "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                    "noplaylist": True,
+                    "outtmpl": outtmpl,
+                    "progress_hooks": [hook],
+                    "quiet": True,
+                }
+            else:
+                ydl_opts = {
+                    "format": "bestaudio[ext=m4a]/bestaudio",
+                    "noplaylist": True,
+                    "outtmpl": outtmpl,
+                    "progress_hooks": [hook],
+                    "quiet": True,
                 }
 
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(video_url, download=True)
-                    file_path = ydl.prepare_filename(info)
-                    if not file_path.endswith(".mp4"):
-                        mp4_path = file_path.rsplit('.', 1)[0] + ".mp4"
-                        os.rename(file_path, mp4_path)
-                        file_path = mp4_path
+            with YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                guessed_path = ydl.prepare_filename(info)
 
-                with open(file_path, "rb") as f:
-                    st.download_button(
-                        label="☕ Grab Your Fresh Brew",
-                        data=f,
-                        file_name=os.path.basename(file_path),
-                        mime="video/mp4"
-                    )
+            path = Path(guessed_path)
+            progress.progress(100)
+            status.write("Done ✓")
 
-            except Exception as e:
-                st.error(f"Uh-oh, your brew spilled: {e}")
+            st.success(f"Ready: {path.name}")
+            with open(path, "rb") as f:
+                st.download_button(
+                    label="Download file",
+                    data=f.read(),
+                    file_name=path.name,
+                    mime="application/octet-stream",
+                )
+    except Exception as e:
+        st.error(f"Error: {e}")
