@@ -67,3 +67,33 @@ if go and url:
                 )
     except Exception as e:
         st.error(f"Error: {e}")
+
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+
+base_opts = {
+    "noplaylist": True,
+    "outtmpl": outtmpl,
+    "progress_hooks": [hook],
+    "quiet": True,
+    # help with 403s / rate limiting on some hosts
+    "http_headers": {
+        "User-Agent": UA,
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": url,  # harmless for most sites; helps some
+    },
+    # yt-specific: use android client (often bypasses 403/throttling)
+    "extractor_args": {"youtube": {"player_client": ["android"]}},
+}
+
+if fmt.startswith("MP4"):
+    ydl_opts = {
+        **base_opts,
+        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    }
+else:
+    ydl_opts = {
+        **base_opts,
+        "format": "bestaudio[ext=m4a]/bestaudio",
+    }
+
